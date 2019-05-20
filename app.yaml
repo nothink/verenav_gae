@@ -1,0 +1,12 @@
+# service: verenav
+
+runtime: go111
+instance_class: F1
+
+env_variables:
+    BUCKET_NAME: 'verenav'
+
+handlers:
+  - url: /api/.*
+    secure: always
+    script: auto
