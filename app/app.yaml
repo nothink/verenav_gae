@@ -1,0 +1,14 @@
+# service: verenav
+
+runtime: go111
+instance_class: F1
+
+env_variables:
+    PROJECT_NAME: 'seio-835885'
+    BUCKET_NAME: 'verenav'
+    COLLECTION_NAME: 'verenav'
+
+handlers:
+  - url: /api/.*
+    secure: always
+    script: auto
