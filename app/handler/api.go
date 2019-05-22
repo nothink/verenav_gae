@@ -1,12 +1,12 @@
 package handler
 
 import (
+    "context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
-	//    "sort"
 
 	"cloud.google.com/go/firestore"
 	"google.golang.org/appengine"
@@ -65,26 +65,27 @@ func PostApiResource(w http.ResponseWriter, r *http.Request) {
 		}
 		defer client.Close()
 
-		col := client.Collection(os.Getenv("COLLECTION_NAME"))
+		collection := client.Collection(os.Getenv("COLLECTION_NAME"))
 
+        var diffQueueSet mapset.Set
 		// ここからTransaction
+        queueDoc := collection.Doc("queue")
+        err = client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+        	queueDocSnap, err := tx.Get(queueDoc)
+            if err != nil {
+                return err
+    		}
+            queueDocSet := CreateSetFromDocument(queueDocSnap)
 
-		queueDoc := col.Doc("queue")
-		queueDocSnap, err := queueDoc.Get(ctx)
-		if err != nil {
-			log.Fatalf("Failed to get document \"queue\": %v", err)
-		}
-		queueDocSet := CreateSetFromDocument(queueDocSnap)
-
-		newQueueSet := queueDocSet.Union(reqSet)
-		_, err = queueDoc.Set(ctx, map[string]interface{}{
-			"keys": newQueueSet.ToSlice(),
-		})
-		if err != nil {
-			log.Fatalf("Failed to set document \"queue\": %v", err)
-		}
-		diffQueueSet := reqSet.Difference(queueDocSet)
-
+            diffQueueSet = reqSet.Difference(queueDocSet)
+            newQueueSet := reqSet.Union(queueDocSet)
+    		return tx.Set(queueDoc, map[string]interface{}{
+    			"keys": newQueueSet.ToSlice(),
+    		})
+        })
+        if err != nil {
+            log.Fatalf("Failed to update document \"queue\": %v", err)
+        }
 		// ここまでTransaction
 
 		resBody = PostResponseBody{
