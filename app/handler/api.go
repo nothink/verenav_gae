@@ -36,6 +36,7 @@ func GetApiResource(w http.ResponseWriter, r *http.Request) {
 	}
 	json, _ := json.Marshal(res)
 	fmt.Fprint(w, string(json))
+	w.Header().Add("Access-Control-Allow-Origin", "*")
 }
 
 func PostApiResource(w http.ResponseWriter, r *http.Request) {
@@ -91,4 +92,5 @@ func PostApiResource(w http.ResponseWriter, r *http.Request) {
 	}
 	json, _ := json.Marshal(resBody)
 	fmt.Fprint(w, string(json))
+	w.Header().Add("Access-Control-Allow-Origin", "*")
 }
