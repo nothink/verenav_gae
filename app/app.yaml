@@ -12,3 +12,7 @@ handlers:
   - url: /api/.*
     secure: always
     script: auto
+
+  - url: /_cron/.*
+    secure: always
+    script: auto

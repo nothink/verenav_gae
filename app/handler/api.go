@@ -1,7 +1,7 @@
 package handler
 
 import (
-    "context"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -26,10 +26,6 @@ type GetResponseBody struct {
 type PostResponseBody struct {
 	Count int      `json:"count"`
 	Urls  []string `json:"urls"`
-}
-
-type Resource struct {
-	LocPath string
 }
 
 func GetApiResource(w http.ResponseWriter, r *http.Request) {
@@ -67,26 +63,26 @@ func PostApiResource(w http.ResponseWriter, r *http.Request) {
 
 		collection := client.Collection(os.Getenv("COLLECTION_NAME"))
 
-        var diffQueueSet mapset.Set
+		var diffQueueSet mapset.Set
 		// ここからTransaction
-        queueDoc := collection.Doc("queue")
-        err = client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
-        	queueDocSnap, err := tx.Get(queueDoc)
-            if err != nil {
-                return err
-    		}
-            queueDocSet := CreateSetFromDocument(queueDocSnap)
+		queueDoc := collection.Doc("queue")
+		err = client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+			queueDocSnap, err := tx.Get(queueDoc)
+			if err != nil {
+				return err
+			}
+			queueDocSet := CreateSetFromDocument(queueDocSnap)
 
-            diffQueueSet = reqSet.Difference(queueDocSet)
-            newQueueSet := reqSet.Union(queueDocSet)
-    		return tx.Set(queueDoc, map[string]interface{}{
-    			"keys": newQueueSet.ToSlice(),
-    		})
-        })
-        if err != nil {
-            log.Fatalf("Failed to update document \"queue\": %v", err)
-        }
+			diffQueueSet = reqSet.Difference(queueDocSet)
+			newQueueSet := reqSet.Union(queueDocSet)
+			return tx.Set(queueDoc, map[string]interface{}{
+				"keys": newQueueSet.ToSlice(),
+			})
+		})
 		// ここまでTransaction
+		if err != nil {
+			log.Fatalf("Failed to update document \"queue\": %v", err)
+		}
 
 		resBody = PostResponseBody{
 			Count: diffQueueSet.Cardinality(),
@@ -95,14 +91,4 @@ func PostApiResource(w http.ResponseWriter, r *http.Request) {
 	}
 	json, _ := json.Marshal(resBody)
 	fmt.Fprint(w, string(json))
-}
-
-func CreateSetFromDocument(doc *firestore.DocumentSnapshot) mapset.Set {
-	set := mapset.NewSet()
-	for _, key := range doc.Data()["keys"].([]interface{}) {
-		if keystring, ok := key.(string); ok {
-			set.Add(keystring)
-		}
-	}
-	return set
 }

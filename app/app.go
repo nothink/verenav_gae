@@ -13,6 +13,8 @@ func main() {
 	r := mux.NewRouter()
 	r.HandleFunc("/api/resource", handler.GetApiResource).Methods("GET")
 	r.HandleFunc("/api/resource", handler.PostApiResource).Methods("POST")
-	http.Handle("/api/", r)
+	r.HandleFunc("/_cron/minutely", handler.MinCronResource).Methods("GET")
+	r.HandleFunc("/_cron/daily", handler.DayCronResource).Methods("GET")
+	http.Handle("/", r)
 	appengine.Main()
 }
