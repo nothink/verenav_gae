@@ -34,17 +34,33 @@ func MinCronResource(w http.ResponseWriter, r *http.Request) {
 	defer cfs.Close()
 	collection := cfs.Collection(os.Getenv("COLLECTION_NAME"))
 
+	refs, err := collection.DocumentRefs(ctx).GetAll()
+	if err != nil {
+		log.Fatalf("Failed to get documents: %v", err)
+	}
 	// ここからTransaction
-    allDoc := collection.Doc("all")
-    deltaDoc := collection.Doc("delta")
-    failedDoc := collection.Doc("failed")
-    queueDoc := collection.Doc("queue")
 	err = cfs.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
-		allDocSnap, err := tx.Get(allDoc)
-		if err != nil {
-			return err
+		var deltaDoc *firestore.DocumentRef
+		var failedDoc *firestore.DocumentRef
+		var queueDoc *firestore.DocumentRef
+
+		allDocSet := mapset.NewSet()
+		for _, doc := range refs {
+			switch doc.ID {
+			case "delta":
+				deltaDoc = doc
+			case "failed":
+				failedDoc = doc
+			case "queue":
+				queueDoc = doc
+			default:
+				snap, err := tx.Get(doc)
+				if err != nil {
+					return err
+				}
+				allDocSet = allDocSet.Union(CreateSetFromDocument(snap))
+			}
 		}
-		allDocSet := CreateSetFromDocument(allDocSnap)
 
 		deltaDocSnap, err := tx.Get(deltaDoc)
 		if err != nil {
@@ -141,11 +157,22 @@ func DayCronResource(w http.ResponseWriter, r *http.Request) {
 	defer cfs.Close()
 	collection := cfs.Collection(os.Getenv("COLLECTION_NAME"))
 
-	_, err = collection.Doc("all").Set(ctx, map[string]interface{}{
-		"keys": allSet.ToSlice(),
-	})
-	if err != nil {
-		log.Fatalf("failed to set document 'all' : %v", err)
+	allSlice := allSet.ToSlice()
+	const maxKeys = 1000
+	for i := 0; i <= len(allSlice) / maxKeys; i++ {
+		var tl int
+		if i == len(allSlice) / maxKeys {
+			tl = len(allSlice)
+		} else {
+			tl = (i + 1) * maxKeys
+		}
+		docname := fmt.Sprintf("all%d", i + 1)
+		_, err = collection.Doc(fmt.Sprintf(docname)).Set(ctx, map[string]interface{}{
+			"keys": allSlice[(i * maxKeys):tl],
+		})
+		if err != nil {
+			log.Fatalf("failed to set document '%s' : %v", docname, err)
+		}
 	}
 
 	_, err = collection.Doc("delta").Set(ctx, map[string]interface{}{
