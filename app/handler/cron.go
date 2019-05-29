@@ -11,8 +11,9 @@ import (
 
 	"cloud.google.com/go/firestore"
 	"cloud.google.com/go/storage"
-	"google.golang.org/appengine"
 	"google.golang.org/api/iterator"
+	"google.golang.org/appengine"
+	"google.golang.org/appengine/mail"
 
 	"github.com/deckarep/golang-set"
 )
@@ -33,6 +34,8 @@ func MinCronResource(w http.ResponseWriter, r *http.Request) {
 	}
 	defer cfs.Close()
 	collection := cfs.Collection(os.Getenv("COLLECTION_NAME"))
+
+	appendSet := mapset.NewSet()
 
 	refs, err := collection.DocumentRefs(ctx).GetAll()
 	if err != nil {
@@ -102,6 +105,7 @@ func MinCronResource(w http.ResponseWriter, r *http.Request) {
 					log.Fatalf("failed to close object `%v`: %v", key, err)
 				}
 				deltaDocSet.Add(key)
+				appendSet.Add(key)
 			}
 		}
 
@@ -125,6 +129,35 @@ func MinCronResource(w http.ResponseWriter, r *http.Request) {
 	// ここまでTransaction
 	if err != nil {
 		log.Fatalf("Failed to update document: %v", err)
+	}
+
+	if appendSet.Cardinality() > 0 {
+		body := "<body>\n<div>\n"
+
+		for _, key := range appendSet.ToSlice() {
+			keystr := key.(string)
+			body = body + fmt.Sprintf("<a href=\"https://storage.googleapis.com/verenav/%s\">%s</a><br />\n", keystr, keystr)
+			pos := strings.LastIndex(keystr, ".")
+			ext := keystr[pos + 1:]
+			if ext == "jpg" || ext == "png" {
+				body = body + fmt.Sprintf("<img src=\"https://storage.googleapis.com/verenav/%s\" style=\"max-width: 320px;\" /><br />\n", keystr)
+			} else if ext == "mp3" || ext == "wav" || ext == "m4a" || ext == "ogg" {
+				body = body + fmt.Sprintf("<audio src=\"https://storage.googleapis.com/verenav/%s\" style=\"max-width: 320px;\" /><br />\n", keystr)
+			} else if ext == "mp4" {
+				body = body + fmt.Sprintf("<video src=\"https://storage.googleapis.com/verenav/%s\" style=\"max-width: 320px;\" /><br />\n", keystr)
+			}
+		}
+		body = body + "</div>\n</body>\n"
+		msg := &mail.Message{
+			Sender:  "nothink@nothink.jp",
+			To:      []string{"nothink@nothink.jp"},
+			Subject: "Verenav UPDATED.",
+			HTMLBody: body,
+		}
+		if err := mail.Send(ctx, msg); err != nil {
+			// メール送信失敗はinfo扱い
+			log.Printf("Failed to send mail: %v", err)
+		}
 	}
 }
 
