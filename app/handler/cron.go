@@ -139,7 +139,7 @@ func MinCronResource(w http.ResponseWriter, r *http.Request) {
 			body = body + fmt.Sprintf("<a href=\"https://storage.googleapis.com/verenav/%s\">%s</a><br />\n", keystr, keystr)
 			pos := strings.LastIndex(keystr, ".")
 			ext := keystr[pos + 1:]
-			if ext == "jpg" || ext == "png" {
+			if ext == "jpg" || ext == "png" || ext == "gif" {
 				body = body + fmt.Sprintf("<img src=\"https://storage.googleapis.com/verenav/%s\" style=\"max-width: 320px;\" /><br />\n", keystr)
 			} else if ext == "mp3" || ext == "wav" || ext == "m4a" || ext == "ogg" {
 				body = body + fmt.Sprintf("<audio src=\"https://storage.googleapis.com/verenav/%s\" style=\"max-width: 320px;\" /><br />\n", keystr)
