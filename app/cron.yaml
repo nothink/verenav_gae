@@ -1,7 +1,1 @@
 cron:
-  - description: "minutely fetch on queue job"
-    url: /_cron/minutely
-    schedule: every 17 mins
-  - description: "daily update on object storeage files list"
-    url: /_cron/daily
-    schedule: every 48 hours
